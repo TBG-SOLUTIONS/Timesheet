@@ -1814,27 +1814,24 @@ async function saveFile(content, filename, mimeType) {
   }
 
   // Mobile: use Web Share API to reach OneDrive app
-  if (isMobile && navigator.share) {
-    // Try sharing with the original MIME type first, then fall back to
-    // text/plain and application/octet-stream which have broader support
-    const mimeTypes = [mimeType, "text/plain", "application/octet-stream"];
-    for (const tryMime of mimeTypes) {
+  if (navigator.share) {
+    try {
+      // Try sharing as text/csv first, then text/plain
+      const file = new File([content], filename, { type: "text/csv" });
+      await navigator.share({ files: [file] });
+      return { success: true, method: "share" };
+    } catch(e) {
+      if (e.name === "AbortError") return { success: false, cancelled: true };
+      // text/csv may not be supported, try text/plain
       try {
-        const file = new File([content], filename, { type: tryMime });
-        // canShare may not exist on older Chrome — skip check if absent
-        if (navigator.canShare && !navigator.canShare({ files: [file] })) continue;
-        await navigator.share({ files: [file], title: "Timesheet Export" });
+        const file = new File([content], filename, { type: "text/plain" });
+        await navigator.share({ files: [file] });
         return { success: true, method: "share" };
-      } catch(e) {
-        if (e.name === "AbortError") return { success: false, cancelled: true };
-        console.warn("Share with " + tryMime + " failed:", e);
-        continue;
+      } catch(e2) {
+        if (e2.name === "AbortError") return { success: false, cancelled: true };
+        console.warn("Web Share failed:", e2);
       }
     }
-
-    // If file sharing failed entirely, try share without files (just a URL/text)
-    // This won't transfer the file but at least confirms share API works
-    console.warn("File sharing not supported, falling back to download");
   }
 
   // Fallback: plain download
