@@ -1813,16 +1813,14 @@ async function saveFile(content, filename, mimeType) {
     }
   }
 
-  // Mobile: use Web Share API to reach OneDrive app
+  // Try Web Share API (Chrome 149+ on Android over HTTPS)
   if (navigator.share) {
     try {
-      // Try sharing as text/csv first, then text/plain
       const file = new File([content], filename, { type: "text/csv" });
       await navigator.share({ files: [file] });
       return { success: true, method: "share" };
     } catch(e) {
       if (e.name === "AbortError") return { success: false, cancelled: true };
-      // text/csv may not be supported, try text/plain
       try {
         const file = new File([content], filename, { type: "text/plain" });
         await navigator.share({ files: [file] });
@@ -1835,8 +1833,6 @@ async function saveFile(content, filename, mimeType) {
   }
 
   // Fallback: plain download
-  // On Android, this triggers "Open with" for some file types,
-  // or saves to Downloads. We provide a clear toast message.
   downloadBlob(content, filename, mimeType);
   return { success: true, method: "download" };
 }
@@ -1848,8 +1844,6 @@ function saveMessage(result, count, dateLabel) {
     return `Saved ${count} entries${suffix} to ${result.location}`;
   } else if (result.method === "share") {
     return `Exported ${count} entries${suffix}`;
-  } else if (isMobile) {
-    return `Saved to Downloads — open Files app to share to OneDrive`;
   } else {
     return `Downloaded ${count} entries${suffix} — save to OneDrive folder`;
   }
